@@ -99,4 +99,4 @@ Database
         Times accessed
         Times downloaded
         Editable
-        Expiration time
+        Expiration date

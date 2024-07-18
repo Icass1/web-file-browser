@@ -5,6 +5,21 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Launch backend debug",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "poetry",
+            "cwd": "${workspaceFolder}/server",
+            "args": [
+                "run",
+                "flask",
+                "run",
+                "--debug"
+            ],
+            "console": "integratedTerminal",
+            "python": "/usr/bin/python3",
+        },
+        {
             "name": "Launch backend",
             "type": "debugpy",
             "request": "launch",
@@ -13,7 +28,7 @@
             "args": [
                 "run",
                 "flask",
-                "run"
+                "run",
             ],
             "console": "integratedTerminal",
             "python": "/usr/bin/python3",
