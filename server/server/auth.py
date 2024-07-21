@@ -1,14 +1,22 @@
-from flask import Blueprint, request, jsonify, current_app
-from .models import User
+from flask import Blueprint, request, jsonify, current_app, redirect
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_jwt_extended import create_access_token
-import bcrypt
+from flask_sqlalchemy import SQLAlchemy
 
-import os
-import base64
+from sqlalchemy.exc import IntegrityError
 
-auth = Blueprint('auth', __name__)
+from .models import User
+from .utils.createId import create_id
 
-db = current_app.config["database"]
+auth = Blueprint('auth', __name__, url_prefix="/auth")
+
+db: SQLAlchemy = current_app.config["db"]
+login_manager: LoginManager = current_app.config["login_manager"]
+
+@login_manager.user_loader
+def load_user(user_id):
+    
+    return db.session.get(User, user_id)
 
 @auth.route('/register', methods=['POST'])
 def register():
@@ -16,20 +24,43 @@ def register():
 
     print(data)
 
-    # hashed_password = bcrypt.hashpw(bytes(data['password'], "utf-8"), base64.b64encode(os.urandom(16))).decode('utf-8')
-    # user = User(username=data['username'], email=data['email'], password=hashed_password)
-    # db.session.add(user)
-    # db.session.commit()
+    id =        create_id()
+    username =  data['username']
+    password =  data['password']
+    scope =     ''
+
+    user = User(id=id, username=username, scope=scope)
+    user.set_password(password=password)
+
+    db.session.add(user)
+    try: db.session.commit()
+    except IntegrityError as e:
+        print("IntegrityError", e.args, e.params)
+        return jsonify(message=e.args), 400
+    except Exception as e:
+        print("Exception", e, type(e))
+        return jsonify(message="Error adding user to database"), 400
+
     return jsonify(message="User created successfully"), 201
-
-
-
 
 @auth.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
-    user = User.query.filter_by(email=data['email']).first()
-    if user and bcrypt.checkpw(user.password, data['password']):
-        access_token = create_access_token(identity={'username': user.username, 'email': user.email})
-        return jsonify(access_token=access_token), 200
-    return jsonify(message="Invalid Credentials"), 401
+    user: User | any = User.query.filter_by(username=data['username']).first()
+    if user and user.check_password(data['password']):
+        login_user(user)
+        next_url = request.args.get("next")
+        if next_url:
+            return redirect(next_url)
+        return jsonify(message="User logged in successfully"), 201
+
+    print(user)
+
+    return jsonify(message="Invalid credentials"), 401
+
+@auth.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return jsonify(message="Logout successfully"), 200
+
